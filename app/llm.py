@@ -11,6 +11,7 @@ import time
 
 class OpenAICompatibleLLM:
     can_reason = True  # 도구 선택, 기억 정리를 모델에게 맡길 수 있다
+    reports_usage = True  # usage dict 를 넘기면 토큰 수를 채운다(트레이스의 비용 계산용)
 
     def __init__(self, api_key, model, base_url=None):
         from openai import OpenAI
@@ -18,25 +19,36 @@ class OpenAICompatibleLLM:
         self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=60)
         self.model = model
 
-    def complete_json(self, system, user):
+    @staticmethod
+    def _usage(response_usage, usage):
+        if usage is not None and response_usage is not None:
+            usage["input"] = response_usage.prompt_tokens
+            usage["output"] = response_usage.completion_tokens
+
+    def complete_json(self, system, user, usage=None):
         """도구 선택처럼 정해진 형식의 답이 필요할 때. JSON 하나를 받아 dict로 돌려준다."""
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
             response_format={"type": "json_object"},
         )
+        self._usage(response.usage, usage)
         return json.loads(response.choices[0].message.content)
 
-    def complete_text(self, messages):
+    def complete_text(self, messages, usage=None):
         response = self.client.chat.completions.create(model=self.model, messages=messages)
+        self._usage(response.usage, usage)
         return response.choices[0].message.content.strip()
 
-    def chat_stream(self, messages):
-        """답을 만들어지는 대로 조금씩 돌려준다(스트리밍)."""
-        response = self.client.chat.completions.create(model=self.model, messages=messages, stream=True)
+    def chat_stream(self, messages, usage=None):
+        """답을 만들어지는 대로 조금씩 돌려준다(스트리밍). 마지막 이벤트에 토큰 수가 온다."""
+        response = self.client.chat.completions.create(model=self.model, messages=messages, stream=True,
+                                                       stream_options={"include_usage": True})
         for event in response:
             if event.choices and event.choices[0].delta.content:
                 yield event.choices[0].delta.content
+            if getattr(event, "usage", None):
+                self._usage(event.usage, usage)
 
 
 class ClaudeLLM:

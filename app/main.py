@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import agent, ocr, when
+from app import agent, ocr, tracing, when
 from app.auth import Auth, User
 from app.config import ROOT, load_settings
 from app.llm import make_llm
@@ -31,6 +31,7 @@ settings = load_settings()  # 꼭 필요한 값이 없으면 여기서 종료한
 llm = make_llm(settings)
 store = make_store(settings)
 current_user = Auth(settings)
+tracing.setup(settings)  # Langfuse 키가 있을 때만 켜진다
 
 app = FastAPI(title="AI 친구 에이전트")
 
@@ -160,12 +161,21 @@ def chat(req: ChatRequest, user: User = Depends(current_user), model=Depends(get
         raise HTTPException(400, "메시지가 비어 있습니다")
 
     def events():
+        trace = tracing.Turn(user.id, message)
+        traced = tracing.TracedLLM(model, trace) if tracing.enabled() else model
+        failed = None
         try:
-            for event in agent.run_turn(message, user.id, model, store, settings.show_turn_panel):
+            for event in agent.run_turn(message, user.id, traced, store, settings.show_turn_panel, trace):
                 yield json.dumps(event, ensure_ascii=False, default=str) + "\n"
         except Exception as error:
+            failed = error
             log("ERROR", "대화 처리 실패", error=type(error).__name__)
             yield json.dumps({"type": "error", "message": "답을 만들지 못했어요. 잠시 뒤 다시 보내 주세요."}, ensure_ascii=False) + "\n"
+        finally:
+            try:
+                trace.finish(failed)
+            except Exception as error:  # 관측 도구가 실패해도 대화는 막지 않는다
+                log("WARNING", "트레이스 전송 실패", error=type(error).__name__)
 
     return StreamingResponse(events(), media_type="application/x-ndjson")
 
@@ -187,8 +197,15 @@ async def read_photo(photo: UploadFile, user: User = Depends(current_user)):
 
 @app.post("/api/report")
 def report(req: ReportRequest, user: User = Depends(current_user)):
-    # 지금은 로그로만 남긴다. 관측 도구를 붙이면 그 도구의 점수로 보낸다.
-    log("WARNING", "부적절한 답변 신고", message_id=req.message_id, reason_length=len(req.reason))
+    # 로그에는 개수만, Langfuse 에는 그 답의 트레이스에 점수(user-feedback=0)로 남긴다.
+    found = next((m for m in store.recent_messages(user.id, 50) if m["id"] == req.message_id), None)
+    trace_id = (found["meta"] or {}).get("trace_id") if found else None
+    try:
+        scored = tracing.feedback(trace_id, req.reason)
+    except Exception as error:
+        scored = False
+        log("WARNING", "피드백 점수 전송 실패", error=type(error).__name__)
+    log("WARNING", "부적절한 답변 신고", message_id=req.message_id, reason_length=len(req.reason), scored=scored)
     return {"ok": True}
 
 
