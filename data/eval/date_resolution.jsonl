@@ -1,0 +1,24 @@
+{"id": "P01", "kind": "problem", "now": "2026-11-10T09:00", "message": "이번 주말에 인천 가려고 하는데 날씨 어때?", "history": [], "expect": {"get_weather": ["2026-11-14", "2026-11-15"]}, "note": "트레이스 ad3a6891, ea475335: 11/13~14, 11/12~14 로 조회"}
+{"id": "P02", "kind": "problem", "now": "2026-11-10T09:00", "message": "주말에 비 와?", "history": [], "expect": {"get_weather": ["2026-11-14", "2026-11-15"]}, "note": "주말 = 토·일"}
+{"id": "P03", "kind": "problem", "now": "2026-11-10T09:00", "message": "아니 토요일 말고 일요일", "history": [{"role": "user", "content": "주말에 비 와?"}, {"role": "assistant", "content": "토요일에는 비 소식이 없대!"}], "expect": {"get_weather": ["2026-11-15"]}, "note": "정정"}
+{"id": "P04", "kind": "problem", "now": "2026-11-10T09:00", "message": "여행 가기 전날 밤 10시에 짐 싸라고 알려 줘", "history": [{"role": "user", "content": "이번 주말에 인천 가려고 하는데 날씨 어때?"}, {"role": "assistant", "content": "토요일은 비 소식이 있어. 우산 챙겨!"}], "expect": {"create_reminder": "2026-11-13T22:00"}, "note": "트레이스 f6fdd2be: 11/9 22:00(지난 시각)로 잡아 저장 실패"}
+{"id": "P05", "kind": "problem", "now": "2026-11-10T09:00", "message": "이번 주말 부산 미세먼지 어때?", "history": [], "expect": {"get_air_quality": ["2026-11-14", "2026-11-15"]}, "note": ""}
+{"id": "P06", "kind": "problem", "now": "2026-11-13T18:00", "message": "이번 주말 날씨 어때?", "history": [], "expect": {"get_weather": ["2026-11-14", "2026-11-15"]}, "note": "금요일에 묻는 주말"}
+{"id": "P07", "kind": "problem", "now": "2026-11-14T10:00", "message": "이번 주말 날씨 어때?", "history": [], "expect": {"get_weather": ["2026-11-14", "2026-11-15"]}, "note": "토요일에 묻는 주말"}
+{"id": "P08", "kind": "problem", "now": "2026-11-10T09:00", "message": "다음 주말에 캠핑 가는데 날씨 알려 줘", "history": [], "expect": {"get_weather": ["2026-11-21", "2026-11-22"]}, "note": ""}
+{"id": "P09", "kind": "problem", "now": "2026-11-10T09:00", "message": "토요일 아침 8시에 등산 가라고 알려 줘", "history": [], "expect": {"create_reminder": "2026-11-14T08:00"}, "note": ""}
+{"id": "P10", "kind": "problem", "now": "2026-11-10T09:00", "message": "일요일 밤에 빨래 걷으라고 알려 줘", "history": [], "expect": {"create_reminder": "2026-11-15T21:00"}, "note": ""}
+{"id": "P11", "kind": "problem", "now": "2026-11-10T09:00", "message": "주말 전날 저녁에 장 보라고 알려 줘", "history": [], "expect": {"create_reminder": "2026-11-13T19:00"}, "note": ""}
+{"id": "P12", "kind": "problem", "now": "2026-11-10T09:00", "message": "이번 주 토요일 서울 날씨는?", "history": [], "expect": {"get_weather": ["2026-11-14"]}, "note": ""}
+{"id": "N01", "kind": "normal", "now": "2026-11-10T09:00", "message": "오늘 서울 날씨 어때?", "history": [], "expect": {"get_weather": ["2026-11-10"]}, "note": ""}
+{"id": "N02", "kind": "normal", "now": "2026-11-10T09:00", "message": "내일 비 와?", "history": [], "expect": {"get_weather": ["2026-11-11"]}, "note": ""}
+{"id": "N03", "kind": "normal", "now": "2026-11-10T09:00", "message": "모레 대전 날씨는?", "history": [], "expect": {"get_weather": ["2026-11-12"]}, "note": ""}
+{"id": "N04", "kind": "normal", "now": "2026-11-10T09:00", "message": "금요일 저녁 7시에 엄마한테 전화하라고 알려 줘", "history": [], "expect": {"create_reminder": "2026-11-13T19:00"}, "note": ""}
+{"id": "N05", "kind": "normal", "now": "2026-11-10T09:00", "message": "내일 아침 8시에 보고서 제출하라고 알려 줘", "history": [], "expect": {"create_reminder": "2026-11-11T08:00"}, "note": ""}
+{"id": "N06", "kind": "normal", "now": "2026-11-10T09:00", "message": "세종 미세먼지는?", "history": [], "expect": {"get_air_quality": ["2026-11-10"]}, "note": ""}
+{"id": "N07", "kind": "normal", "now": "2026-11-10T09:00", "message": "요즘 잠을 잘 못 자", "history": [], "expect": {}, "note": "도구 없음"}
+{"id": "N08", "kind": "normal", "now": "2026-11-10T09:00", "message": "아 오늘 회의 너무 많아서 벌써 지친다", "history": [], "expect": {}, "note": "도구 없음"}
+{"id": "N09", "kind": "normal", "now": "2026-11-10T09:00", "message": "다음 주 월요일 오전 9시에 운동 가라고 알려 줘", "history": [], "expect": {"create_reminder": "2026-11-16T09:00"}, "note": ""}
+{"id": "N10", "kind": "normal", "now": "2026-11-10T09:00", "message": "수요일에 우산 필요할까?", "history": [], "expect": {"get_weather": ["2026-11-11"]}, "note": ""}
+{"id": "N11", "kind": "normal", "now": "2026-11-10T09:00", "message": "다음 달에 쉬는 날 있어?", "history": [], "expect": {"get_holidays": "2026-12"}, "note": "from 의 달만 비교"}
+{"id": "N12", "kind": "normal", "now": "2026-11-10T09:00", "message": "ㅎㅇ", "history": [], "expect": {}, "note": "도구 없음"}
