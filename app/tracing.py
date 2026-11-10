@@ -27,14 +27,9 @@ def setup(settings):
         return
     from langfuse import Langfuse
 
-    # 백그라운드 자동 전송(기본 5초마다)을 사실상 끄고, 턴 끝의 flush() 로만 보낸다.
-    # Cloud Run 은 응답이 끝나면 CPU 를 거의 주지 않아서, 백그라운드 전송이 도중에 멈추면 그 묶음이 사라졌다
-    # (2026-11-10 staging: 40턴 중 23턴 유실, 한 턴 걸러 하나씩. 이 설정 뒤 10/10 도착).
     _client = Langfuse(public_key=public, secret_key=secret,
                        base_url=os.environ.get("LANGFUSE_HOST", "https://us.cloud.langfuse.com").strip(),
-                       environment=settings.env.lower(), release=settings.commit,
-                       flush_interval=float(os.environ.get("LANGFUSE_FLUSH_INTERVAL", "3600")),
-                       flush_at=int(os.environ.get("LANGFUSE_FLUSH_AT", "512")))
+                       environment=settings.env.lower(), release=settings.commit)
     _attrs = {"version": settings.commit[:12], "environment": settings.env.lower()}
     log("INFO", "Langfuse 트레이스를 켭니다.", version=_attrs["version"])
 
@@ -53,9 +48,17 @@ class Turn:
         if _client is None:
             return
         from langfuse import propagate_attributes
+        from opentelemetry import context as otel_context
 
-        with propagate_attributes(user_id=uid, session_id=uid, trace_name="chat-turn", **_attrs):
-            self.root = _client.start_observation(name="chat-turn", as_type="agent", input=message)
+        # 들어온 요청의 traceparent 를 이어받지 않고 빈 맥락에서 새 트레이스를 시작한다.
+        # Cloud Run 은 요청마다 traceparent 를 붙이고 일부만 '기록함'(01)으로 표시한다. FastAPI 가 그 헤더를
+        # 이어받으면 '기록 안 함'(00) 요청의 span 이 모두 버려졌다(2026-11-10 staging: 한 턴 걸러 하나씩 유실).
+        token = otel_context.attach(otel_context.Context())
+        try:
+            with propagate_attributes(user_id=uid, session_id=uid, trace_name="chat-turn", **_attrs):
+                self.root = _client.start_observation(name="chat-turn", as_type="agent", input=message)
+        finally:
+            otel_context.detach(token)
         self.trace_id = self.root.trace_id
 
     def child(self, name, as_type="span", **fields):
