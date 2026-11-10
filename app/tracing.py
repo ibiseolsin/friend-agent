@@ -27,9 +27,14 @@ def setup(settings):
         return
     from langfuse import Langfuse
 
+    # 백그라운드 자동 전송(기본 5초마다)을 사실상 끄고, 턴 끝의 flush() 로만 보낸다.
+    # Cloud Run 은 응답이 끝나면 CPU 를 거의 주지 않아서, 백그라운드 전송이 도중에 멈추면 그 묶음이 사라졌다
+    # (2026-11-10 staging: 40턴 중 23턴 유실, 한 턴 걸러 하나씩. 이 설정 뒤 10/10 도착).
     _client = Langfuse(public_key=public, secret_key=secret,
                        base_url=os.environ.get("LANGFUSE_HOST", "https://us.cloud.langfuse.com").strip(),
-                       environment=settings.env.lower(), release=settings.commit)
+                       environment=settings.env.lower(), release=settings.commit,
+                       flush_interval=float(os.environ.get("LANGFUSE_FLUSH_INTERVAL", "3600")),
+                       flush_at=int(os.environ.get("LANGFUSE_FLUSH_AT", "512")))
     _attrs = {"version": settings.commit[:12], "environment": settings.env.lower()}
     log("INFO", "Langfuse 트레이스를 켭니다.", version=_attrs["version"])
 
