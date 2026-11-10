@@ -11,13 +11,13 @@
 - 새 리비전은 먼저 `--no-traffic --tag canary` 로 올려 시작 확인(`/health`)을 마친 뒤 10%를 보낸다. 트래픽 옮기기: `gcloud run services update-traffic <서비스> --region us-central1 --to-tags canary=10`
 - 응답 시간은 Cloud Run 콘솔 > 서비스 > 측정항목의 "요청 지연 시간"을 리비전별로 본다(스크립트는 재지 않음).
 
+- 어디서 확인하는가: 요청 확인 스크립트(`scripts/watch_requests.py`)의 리비전별 응답 수, Cloud Run 콘솔 측정항목의 리비전별 요청 수·오류·지연 시간
+- 답변 품질 같은 AI 기준: 관측 도구를 붙인 뒤 이 표에 추가한다.
+
 ## 실행 기록
 
 | 날짜 | 서비스 | 단계 | 전체 요청 | 실패 | 새 리비전 비율 | 판단 |
 | --- | --- | --- | --- | --- | --- | --- |
-
-- 어디서 확인하는가: 요청 확인 스크립트(`scripts/watch_requests.py`)의 리비전별 응답 수, Cloud Run 콘솔 측정항목의 리비전별 요청 수·오류·지연 시간
-- 답변 품질 같은 AI 기준: 관측 도구를 붙인 뒤 이 표에 추가한다.
 | 2026-11-10 | friend-agent-staging | (이전 friend-agent-staging-00006-h5l → 새 friend-agent-staging-00010-wus) | | | | |
 | 2026-11-10 | friend-agent-staging | 10% | 168 | 0 | 10% | 통과 |
 | 2026-11-10 | friend-agent-staging | 50% | 170 | 0 | 48% | 통과 |
