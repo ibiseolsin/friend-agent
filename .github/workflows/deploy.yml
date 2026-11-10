@@ -40,7 +40,8 @@ jobs:
           env_vars: |
             COMMIT_SHA=${{ github.sha }}
             ENV=${{ vars.ENV }}
-          flags: --service-account=${{ vars.RUNTIME_SA }} --build-service-account=projects/${{ vars.GCP_PROJECT_ID }}/serviceAccounts/${{ vars.BUILD_SA }}
+          # --clear-base-image: Buildpacks 로 처음 만든 서비스에 붙은 base image 설정을 지운다. 없으면 Dockerfile 빌드 배포가 거부된다.
+          flags: --service-account=${{ vars.RUNTIME_SA }} --build-service-account=projects/${{ vars.GCP_PROJECT_ID }}/serviceAccounts/${{ vars.BUILD_SA }} --clear-base-image
 
       - name: 배포 주소
         run: echo "배포된 주소 ${{ steps.deploy.outputs.url }}"
