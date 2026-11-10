@@ -64,7 +64,7 @@ def main():
         else:
             t["steps"].append({"name": o.get("name"), "type": str(o.get("type")), "cost": o.get("totalCost") or 0,
                                "latency": o.get("latency"), "ttft": o.get("timeToFirstToken"),
-                               "input": o.get("input") if o.get("name") in ("tool-choice",) else None,
+                               "input": o.get("input") if o.get("name") == "tool-choice" or str(o.get("type")).upper().endswith("TOOL") else None,
                                "output": o.get("output") if str(o.get("type")).upper().endswith("TOOL")
                                or o.get("name") == "tool-choice" else None})
     rows = []

@@ -25,6 +25,18 @@ UNKNOWN = re.compile(r"모르|알 수 없|알려줄 수 없|알려 줄 수 없|�
 
 
 def tool_args(t):
+    """실제로 실행된 도구와 인자(안전장치가 고친 뒤의 값). 도구 span 의 input 이 없는 옛 기록은 모델 출력으로 대신한다."""
+    def parse(v):
+        if isinstance(v, str):
+            try:
+                v = json.loads(v)
+            except ValueError:
+                return {}
+        return v if isinstance(v, dict) else {}
+
+    ran = [{"name": s["name"], "args": parse(s.get("input"))} for s in t["steps"] if "TOOL" in s["type"].upper()]
+    if ran and all(r["args"] for r in ran):
+        return ran
     for s in t["steps"]:
         if s["name"] == "tool-choice" and s["output"]:
             o = s["output"]
