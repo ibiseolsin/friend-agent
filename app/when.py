@@ -81,6 +81,37 @@ def parse_when(text, now):
     return due
 
 
+WEEKDAY_PATTERN = re.compile(r"(다음\s*주\s*)?([월화수목금토일])요일")
+
+
+def mentioned_dates(text, now):
+    """메시지의 요일 이름·주말 표현을 코드로 날짜로 바꾼다. 확실하지 않으면 None.
+
+    - '다음 주말' → 다음 주 토·일, '주말' → 이번 주 토·일(지난 날은 뺀다)
+    - 'X요일' → 오늘 이후 가장 가까운 X요일, '다음 주 X요일' → 다음 주의 X요일
+    - 'X 말고 Y' 처럼 바로잡는 말은 '말고' 뒤의 요일만 본다. 서로 다른 요일이 둘 이상이면 None.
+    - '전날', '다음 날' 처럼 다른 날을 기준으로 다시 세는 말이 있으면 None(모델 판단에 맡긴다).
+    """
+    if any(word in text for word in ("전날", "다음 날", "다음날", "지난")):
+        return None
+    if "말고" in text:
+        text = text.split("말고", 1)[1]
+    today = now.date()
+    monday = today - timedelta(days=today.weekday())
+    if re.search(r"다음\s*주\s*말", text):
+        return [monday + timedelta(days=12), monday + timedelta(days=13)]
+    if "주말" in text:
+        return [d for d in (monday + timedelta(days=5), monday + timedelta(days=6)) if d >= today] or None
+    found = {(bool(m.group(1)), m.group(2)) for m in WEEKDAY_PATTERN.finditer(text)}
+    if len(found) != 1:
+        return None
+    next_week, name = found.pop()
+    target = WEEKDAYS.index(name)
+    if next_week:
+        return [monday + timedelta(days=7 + target)]
+    return [today + timedelta(days=(target - today.weekday()) % 7)]
+
+
 def fix_year(value, now):
     """모델이 학습 시점의 연도(예: 2023)를 쓰는 경우가 있다. 지난 연도면 올해로 바꾼다. 바꿨으면 True."""
     text = str(value or "")

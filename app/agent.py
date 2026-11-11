@@ -12,7 +12,7 @@
 """
 from datetime import timedelta
 
-from app import memory, when
+from app import memory, tracing, when
 from app.logs import log
 from app.persona import DEFAULT_CHARACTER, build_persona
 from app.router import choose
@@ -35,7 +35,9 @@ def system_prompt(character, now, location, memories, summary, tool_lines=(), cl
     return "\n\n".join(parts)
 
 
-def run_turn(message, uid, llm, store, show_panel):
+def run_turn(message, uid, llm, store, show_panel, trace=None):
+    """trace 는 tracing.Turn. llm 이 tracing.TracedLLM 이면 단계마다 stage 를 바꿔 모델 호출 이름으로 남긴다."""
+    trace = trace or tracing.Turn()
     settings = store.get_settings(uid)
     character = store.get_character(uid) or DEFAULT_CHARACTER
     now = when.now_in(settings["timezone"])
@@ -50,12 +52,15 @@ def run_turn(message, uid, llm, store, show_panel):
             yield {"type": "turn", "tools": [], "confidence": None, "reason": "", "decided_by": "rule",
                    "action": "safety", "guards": guards}
         yield {"type": "delta", "text": CRISIS_REPLY}
-        saved = store.add_message(uid, "assistant", CRISIS_REPLY, {"action": "safety", "guards": guards})
+        saved = store.add_message(uid, "assistant", CRISIS_REPLY,
+                                  {"action": "safety", "guards": guards, "trace_id": trace.trace_id})
+        trace.record(CRISIS_REPLY, {"action": "safety", "decided_by": "rule"})
         log("WARNING", "위기 표현 안전 응답")
         yield {"type": "done", "message_id": saved["id"]}
         return
 
     # ② 도구 선택
+    _stage(llm, "tool-choice")
     choice = choose(message, history, now, settings["location"], llm)
     if show_panel:
         yield {"type": "turn", "tools": [{"name": t["name"], "label": TOOLS[t["name"]]["label"], "args": t["args"]}
@@ -66,6 +71,8 @@ def run_turn(message, uid, llm, store, show_panel):
     # ③ 도구 실행
     ctx = Context(store, uid, settings["location"], settings["timezone"])
     results = [run_tool(t["name"], t["args"], ctx) for t in choice.tools]
+    for t, r in zip(choice.tools, results):
+        trace.tool(r.name, t["args"], r.ok, r.summary)
     for r in results:
         if show_panel:
             yield {"type": "tool", "name": r.name, "label": TOOLS[r.name]["label"], "ok": r.ok,
@@ -80,20 +87,29 @@ def run_turn(message, uid, llm, store, show_panel):
         yield {"type": "context", "memories": [m["text"] for m in memories],
                "summary": summary["text"] if summary else None, "recent_messages": len(history)}
     reply = ""
+    _stage(llm, "reply")
     for chunk in llm.chat_stream([{"role": "system", "content": system}, *history, {"role": "user", "content": message}]):
         reply += chunk
         yield {"type": "delta", "text": chunk}
     meta = {"tools": [t["name"] for t in choice.tools], "confidence": choice.confidence,
             "action": choice.action, "guards": choice.guards}
-    saved = store.add_message(uid, "assistant", reply, meta)
+    saved = store.add_message(uid, "assistant", reply, {**meta, "trace_id": trace.trace_id})
+    trace.record(reply, {**meta, "decided_by": choice.decided_by, "reason": choice.reason})
 
     # ⑤ 기억 정리
     yield {"type": "memory_start"}
+    _stage(llm, "memory")
     changes = memory.update_memories(store, uid, message, reply, now, llm)
+    _stage(llm, "summary")
     memory.maybe_summarize(store, uid, llm)
     yield {"type": "memory", "added": [m["text"] for m in changes["added"]],
            "updated": [m["text"] for m in changes["updated"]], "removed": [m["text"] for m in changes["removed"]]}
     yield {"type": "done", "message_id": saved["id"]}
+
+
+def _stage(llm, name):
+    if isinstance(llm, tracing.TracedLLM):
+        llm.stage = name
 
 
 def greet(uid, llm, store):

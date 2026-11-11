@@ -131,7 +131,37 @@ def model_choose(message, history, now, location, llm):
                 t["args"][key], fixed = when.fix_year(t["args"][key], now)
                 if fixed:
                     result.guards.append(f"{t['name']} 의 {key} 연도가 지난 연도라 {now.year}년으로 고쳤습니다.")
+    fix_mentioned_dates(result, message, now)
     return result
+
+
+def fix_mentioned_dates(result, message, now):
+    """안전장치: 메시지의 요일 이름·주말은 코드로 계산한 날짜로 맞춘다.
+
+    모델은 '토요일'을 목요일 날짜로, '주말'을 금·토로 잡는 일이 잦았다(2026-11-10 staging 트레이스,
+    scripts/eval_dates.py 문제 항목 33~36%). 달력을 길게 풀어 쓰는 방법은 묻지 않은 도구를 덧붙이는 부작용이 있어서
+    지시문은 그대로 두고, 고른 결과의 날짜만 고친다.
+    """
+    dates = when.mentioned_dates(message, now)
+    if not dates:
+        return
+    dated = [t for t in result.tools if "date" in t["args"]]
+    names = {t["name"] for t in dated}
+    if len(names) == 1:  # 날씨나 미세먼지 한 종류만 고른 경우: 그 날짜(들)로 다시 만든다
+        want = [d.isoformat() for d in dates][:MAX_TOOLS]
+        got = sorted(str(t["args"]["date"])[:10] for t in dated)
+        if got != want:
+            base = dated[0]
+            others = [t for t in result.tools if t not in dated]
+            result.tools = others + [{"name": base["name"], "args": {**base["args"], "date": d}} for d in want]
+            result.tools = result.tools[:MAX_TOOLS]
+            result.guards.append(f"{base['name']} 날짜를 메시지의 요일·주말에 맞춰 {', '.join(want)} 로 고쳤습니다(모델: {', '.join(got)}).")
+    if len(dates) == 1:  # 약속: 날짜만 바꾸고 시각은 모델이 정한 대로 둔다
+        for t in result.tools:
+            due = str(t["args"].get("due_at", ""))
+            if t["name"] == "create_reminder" and len(due) >= 10 and due[:10] != dates[0].isoformat():
+                t["args"]["due_at"] = dates[0].isoformat() + due[10:]
+                result.guards.append(f"약속 날짜를 메시지의 요일에 맞춰 {dates[0].isoformat()} 로 고쳤습니다(모델: {due[:10]}).")
 
 
 def choose(message, history, now, location, llm):
